@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
-
+import dj_database_url
+from dotenv import load_dotenv
 from django.contrib.messages import constants as message_constants
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get(
@@ -66,11 +68,11 @@ CHANNEL_LAYERS = {
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.environ.get("MYSQL_DATABASE", "smartchat"),
-        "USER": os.environ.get("MYSQL_USER", "root"),
-        "PASSWORD": os.environ.get("MYSQL_PASSWORD", ""),
-        "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),
-        "PORT": os.environ.get("MYSQL_PORT", "3306"),
+        "NAME": os.environ.get("DB_NAME"),
+        "USER": os.environ.get("DB_USER"),
+        "PASSWORD": os.environ.get("DB_PASSWORD"),
+        "HOST": os.environ.get("DB_HOST"),
+        "PORT": os.environ.get("DB_PORT"),
         "OPTIONS": {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -114,8 +116,13 @@ LOGIN_REDIRECT_URL = "chat:inbox"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-DEFAULT_FROM_EMAIL = "SmartChat <noreply@smartchat.local>"
-
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+# DEFAULT_FROM_EMAIL = "SmartChat <noreply@smartcha t.local>"
+DEFAULT_FROM_EMAIL = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_APP_PASSWORD")
+EMAIL_PORT = os.environ.get("EMAIL_HOST_PORT")
+EMAIL_USE_TLS = True
 OTP_EXPIRY_MINUTES = 5
 
 if DEBUG:
