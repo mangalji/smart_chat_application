@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
@@ -9,12 +11,38 @@ from .forms import LoginRequestForm, LoginVerifyForm, SignupRequestForm, SignupV
 from .models import EmailOTP, OTPPurpose
 
 User = get_user_model()
+logger = logging.getLogger("accounts")
 
 
 def _send_otp_email(email, code, purpose_label):
+    """
+    Sends OTP to the *user's* inbox (the address they typed on signup/login).
+    Your Gmail account is only the SMTP login; recipients are always `email`.
+    """
     subject = f"SmartChat {purpose_label} code"
-    body = f"Your SmartChat verification code is: {code}\n\nIt expires in {settings.OTP_EXPIRY_MINUTES} minutes."
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
+    body = (
+        f"Your SmartChat verification code is: {code}\n\n"
+        f"It expires in {settings.OTP_EXPIRY_MINUTES} minutes."
+    )
+    try:
+        send_mail(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        if settings.DEBUG:
+            logger.info(
+                "OTP email OK | to=%s | purpose=%s | code=%s",
+                email,
+                purpose_label,
+                code,
+            )
+        return True
+    except Exception:
+        logger.exception("OTP email FAILED | to=%s | purpose=%s", email, purpose_label)
+        return False
 
 
 @require_http_methods(["GET", "POST"])
@@ -26,16 +54,26 @@ def signup_request(request):
         form = SignupRequestForm(request.POST)
         if form.is_valid():
             otp = EmailOTP.create_for_email(form.cleaned_data["email"], OTPPurpose.SIGNUP)
-            _send_otp_email(otp.email, otp.code, "signup")
-            request.session["pending_signup"] = {
-                "email": form.cleaned_data["email"],
-                "password": form.cleaned_data["password1"],
-                "first_name": form.cleaned_data.get("first_name") or "",
-                "last_name": form.cleaned_data.get("last_name") or "",
-                "phone": form.cleaned_data.get("phone") or "",
-            }
-            messages.info(request, "We sent a verification code to your email (check the console in development).")
-            return redirect("accounts:signup_verify")
+            if not _send_otp_email(otp.email, otp.code, "signup"):
+                otp.delete()
+                messages.error(
+                    request,
+                    "Could not send the email. Check SMTP settings and the server logs.",
+                )
+            else:
+                request.session["pending_signup"] = {
+                    "email": form.cleaned_data["email"],
+                    "password": form.cleaned_data["password1"],
+                    "first_name": form.cleaned_data.get("first_name") or "",
+                    "last_name": form.cleaned_data.get("last_name") or "",
+                    "phone": form.cleaned_data.get("phone") or "",
+                }
+                messages.info(
+                    request,
+                    "We sent a verification code to that email address. "
+                    "With DEBUG=True you can also see the code in the terminal.",
+                )
+                return redirect("accounts:signup_verify")
     else:
         form = SignupRequestForm()
     return render(request, "accounts/signup_request.html", {"form": form})
@@ -96,11 +134,21 @@ def login_request(request):
         if form.is_valid():
             email = form.cleaned_data["email"]
             otp = EmailOTP.create_for_email(email, OTPPurpose.LOGIN)
-            _send_otp_email(otp.email, otp.code, "login")
-            request.session["pending_login_email"] = email
-            request.session.pop("chat_access_verified", None)
-            messages.info(request, "We sent a login code to your email (check the console).")
-            return redirect("accounts:login_verify")
+            if not _send_otp_email(otp.email, otp.code, "login"):
+                otp.delete()
+                messages.error(
+                    request,
+                    "Could not send the email. Check SMTP settings and the server logs.",
+                )
+            else:
+                request.session["pending_login_email"] = email
+                request.session.pop("chat_access_verified", None)
+                messages.info(
+                    request,
+                    "We sent a login code to your email. "
+                    "With DEBUG=True you can also see the code in the terminal.",
+                )
+                return redirect("accounts:login_verify")
     else:
         form = LoginRequestForm()
     return render(request, "accounts/login_request.html", {"form": form})
