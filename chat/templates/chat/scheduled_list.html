@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Scheduled messages — SmartChat{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Scheduled messages</h1>
+<div class="table-responsive card shadow-sm">
+  <table class="table table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>Room</th>
+        <th>When (UTC)</th>
+        <th>Event</th>
+        <th>Status</th>
+        <th>Preview</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in items %}
+        <tr>
+          <td><a href="{% url 'chat:room' s.room_id %}">#{{ s.room_id }}</a></td>
+          <td>{{ s.scheduled_at }}</td>
+          <td>{{ s.get_event_type_display }}</td>
+          <td><span class="badge text-bg-{% if s.status == 'sent' %}success{% elif s.status == 'failed' %}danger{% else %}warning{% endif %}">{{ s.get_status_display }}</span></td>
+          <td class="small text-muted">{{ s.body|truncatechars:40 }}{% if s.attachment %} 📎{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-muted p-4">No scheduled messages.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

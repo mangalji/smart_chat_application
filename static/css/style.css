@@ -1,0 +1,32 @@
+.chat-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.msg-bubble {
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  max-width: 85%;
+}
+
+.msg-own {
+  margin-left: auto;
+  background: #cfe2ff;
+  border: 1px solid #b6d4fe;
+}
+
+.msg-other {
+  margin-right: auto;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.msg-meta {
+  font-size: 0.75rem;
+  color: #6c757d;
+}

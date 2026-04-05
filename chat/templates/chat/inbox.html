@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load chat_extras %}
+{% block title %}Inbox — SmartChat{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Start a direct chat</div>
+      <div class="card-body">
+        {% if other_users %}
+          <ul class="list-group list-group-flush">
+            {% for u in other_users %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ u.get_full_name|default:u.email }}<br><small class="text-muted">{{ u.email }}</small></span>
+                <form action="{% url 'chat:start_direct' %}" method="post" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="user_id" value="{{ u.pk }}">
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Chat</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">No other users yet. Create another account in another browser to test direct chat.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">Your conversations</div>
+      <div class="list-group list-group-flush">
+        {% for room in rooms %}
+          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+             href="{% url 'chat:room' room.id %}">
+            <span>{{ room|room_label:user }}</span>
+            <span class="badge text-bg-secondary">{{ room.get_room_type_display }}</span>
+          </a>
+        {% empty %}
+          <div class="list-group-item text-muted">No chats yet. Start one from the list on the left or create a group.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
