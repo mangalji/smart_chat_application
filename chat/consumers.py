@@ -4,7 +4,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
 
-from .models import ChatRoom, ChatRoomType, GroupMember, MediaMessage, Message
+from .models import ChatRoom, GroupMember, Message
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -13,7 +13,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if isinstance(self.user, AnonymousUser) or not self.user.is_authenticated:
             await self.close()
             return
-        self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])
+        try:
+            self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])
+        except (KeyError, TypeError, ValueError):
+            await self.close()
+            return
         ok = await self._user_in_room(self.user.id, self.room_id)
         if not ok:
             await self.close()
@@ -32,7 +36,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _save_text_message(self, body):
-        room = ChatRoom.objects.get(pk=self.room_id)
+        try:
+            room = ChatRoom.objects.get(pk=self.room_id)
+        except ChatRoom.DoesNotExist:
+            return None, None
         msg = Message.objects.create(room=room, sender=self.user, body=body.strip())
         return msg.id, msg.created_at.isoformat()
 
@@ -49,6 +56,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not body:
             return
         msg_id, created_iso = await self._save_text_message(body)
+        if msg_id is None:
+            return
         await self.channel_layer.group_send(
             self.group_name,
             {

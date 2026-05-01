@@ -182,12 +182,19 @@ def login_verify(request):
                 form.add_error("code", "Incorrect code.")
             else:
                 otp.mark_used()
-                user = User.objects.get(email=email)
-                login(request, user)
-                request.session.pop("pending_login_email", None)
-                request.session["chat_access_verified"] = True
-                messages.success(request, "You are logged in.")
-                return redirect("chat:inbox")
+                try:
+                    user = User.objects.get(email=email)
+                except User.DoesNotExist:
+                    form.add_error(
+                        "code",
+                        "That account no longer exists. Please sign up again.",
+                    )
+                else:
+                    login(request, user)
+                    request.session.pop("pending_login_email", None)
+                    request.session["chat_access_verified"] = True
+                    messages.success(request, "You are logged in.")
+                    return redirect("chat:inbox")
     else:
         form = LoginVerifyForm()
     return render(request, "accounts/login_verify.html", {"form": form, "email": email})

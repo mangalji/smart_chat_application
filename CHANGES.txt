@@ -1,0 +1,93 @@
+SmartChat — code hardening and bug-prevention changes
+Generated: 2026-04-05 (session)
+
+================================================================================
+1. smartchat/settings.py
+================================================================================
+- Added _env_int() helper: EMAIL_HOST_PORT and DB_PORT are parsed safely; empty or
+  non-numeric values fall back to defaults (587 / 3306) instead of crashing on int().
+- Production safety (DJANGO_DEBUG=0):
+  - Raises ImproperlyConfigured if DJANGO_SECRET_KEY is missing or still the default
+    dev placeholder.
+  - Raises ImproperlyConfigured if CSRF_TRUSTED_ORIGINS is empty (prevents broken
+    HTTPS POST/CSRF on Render and similar hosts).
+  - Sets SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, and
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") for reverse proxies.
+- Moved ALLOWED_HOSTS / CSRF_TRUSTED_ORIGINS above the production checks so variables
+  exist before they are validated.
+- Removed unused `import sys` (was not needed).
+
+================================================================================
+2. accounts/migrations/0002_alter_emailotp_table.py
+================================================================================
+- Replaced brittle standalone RenameIndex operation with a single
+  SeparateDatabaseAndState + RunPython that:
+  - Renames table accounts_email_otp -> accounts_otp when needed (MySQL / Postgres /
+    SQLite), same as before.
+  - Best-effort MySQL index rename (accounts_em_* -> accounts_ot_*) inside RunPython,
+    wrapped in try/except so MySQL < 8, missing index, or duplicate names do not
+    abort migrate.
+- Django’s migration *state* still includes AlterModelTable + RenameIndex so future
+  makemigrations stays consistent with the model.
+
+================================================================================
+3. chat/apps.py (DEBUG scheduler thread)
+================================================================================
+- Replaced silent `except Exception: pass` with `logger.exception(...)` so scheduler
+  failures are visible in logs instead of failing silently forever.
+
+================================================================================
+4. chat/consumers.py
+================================================================================
+- WebSocket connect: room_id parsing wrapped in try/except for KeyError/TypeError/
+  ValueError (malformed URL) — closes connection instead of raising 500.
+- _save_text_message: handles ChatRoom.DoesNotExist; receive() skips broadcast if save
+  failed.
+- Removed unused imports (ChatRoomType, MediaMessage).
+
+================================================================================
+5. chat/utils_broadcast.py
+================================================================================
+- If get_channel_layer() returns None (misconfiguration / tests), logs a warning and
+  returns instead of raising AttributeError on group_send.
+
+================================================================================
+6. chat/management/commands/process_scheduled_messages.py
+================================================================================
+- Wrapped delivery in database transaction.atomic(): if Message/MediaMessage creation
+  or broadcast fails, the DB row is rolled back so you do not leave orphan messages
+  marked SENT.
+- On failure, updates the scheduled row by primary key with FAILED + error_message.
+
+================================================================================
+7. chat/views.py (upload_chat_media)
+================================================================================
+- Message + MediaMessage creation wrapped in transaction.atomic(); on failure returns
+  JSON 500 instead of leaving a message row without media.
+
+================================================================================
+8. accounts/views.py (login_verify)
+================================================================================
+- After OTP verification, User.objects.get(email=email) wrapped in try/except
+  User.DoesNotExist with a clear form error if the user was deleted between OTP send
+  and verify.
+
+================================================================================
+FILES NOT CHANGED (already correct / out of scope)
+================================================================================
+- models.py table name accounts_otp (aligned with migration 0002).
+- OTP email flow already uses fail_silently=False and logging.
+
+================================================================================
+RECOMMENDED FOLLOW-UP (manual)
+================================================================================
+- For production (DEBUG=0): set DJANGO_SECRET_KEY, DJANGO_ALLOWED_HOSTS,
+  CSRF_TRUSTED_ORIGINS in environment (see RENDER.md).
+- Rotate any credentials that were ever committed or shared.
+- Optional: wrap broadcast_room_event in upload view with try/except if you need
+  guaranteed delivery when channel layer is down (currently message persists even if
+  broadcast fails).
+
+================================================================================
+END
+================================================================================

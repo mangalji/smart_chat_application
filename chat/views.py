@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Max
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -140,13 +141,17 @@ def upload_chat_media(request, room_id):
     f = request.FILES.get("file")
     if not f:
         return JsonResponse({"error": "No file uploaded."}, status=400)
-    msg = Message.objects.create(room=room, sender=request.user, body="")
-    media = MediaMessage.objects.create(
-        message=msg,
-        file=f,
-        original_name=getattr(f, "name", "") or "attachment",
-        content_type=getattr(f, "content_type", "") or "",
-    )
+    try:
+        with transaction.atomic():
+            msg = Message.objects.create(room=room, sender=request.user, body="")
+            media = MediaMessage.objects.create(
+                message=msg,
+                file=f,
+                original_name=getattr(f, "name", "") or "attachment",
+                content_type=getattr(f, "content_type", "") or "",
+            )
+    except Exception:
+        return JsonResponse({"error": "Could not save file."}, status=500)
     created_iso = msg.created_at.isoformat()
     broadcast_room_event(
         room_id,

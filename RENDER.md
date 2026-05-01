@@ -38,7 +38,7 @@ Set these in the service → **Environment**:
 | `DJANGO_SECRET_KEY` | Long random string (generate locally: `python -c "import secrets; print(secrets.token_urlsafe(50))"`). |
 | `DJANGO_DEBUG` | `0` |
 | `DJANGO_ALLOWED_HOSTS` | `your-app.onrender.com` (comma-separated if multiple). |
-| `CSRF_TRUSTED_ORIGINS` | `https://your-app.onrender.com` |
+| `CSRF_TRUSTED_ORIGINS` | `https://your-app.onrender.com` (**required** when `DEBUG=0` or the app will refuse to start). |
 | `EMAIL_HOST` | `smtp.gmail.com` |
 | `EMAIL_HOST_USER` | Your Gmail address |
 | `EMAIL_APP_PASSWORD` | Gmail **App Password** (not your normal password) |

@@ -66,7 +66,7 @@ class EmailOTP(models.Model):
     used = models.BooleanField(default=False, db_index=True)
 
     class Meta:
-        db_table = "accounts_email_otp"
+        db_table = "accounts_otp"
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["email", "purpose", "used"]),

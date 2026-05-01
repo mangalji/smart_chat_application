@@ -3,6 +3,7 @@ from pathlib import Path
 
 import dj_database_url
 from django.contrib.messages import constants as message_constants
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Load .env from project root (manage.py) first, then smartchat/ (either location works).
@@ -13,16 +14,21 @@ load_dotenv(_SETTINGS_DIR / ".env")
 
 BASE_DIR = _BASE_DIR
 
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "dev-only-change-in-production-smartchat-2026",
-)
+
+def _env_int(key: str, default: int) -> int:
+    raw = os.environ.get(key, str(default))
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+_DEFAULT_DEV_SECRET = "dev-only-change-in-production-smartchat-2026"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", _DEFAULT_DEV_SECRET)
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
 
 ALLOWED_HOSTS = [
     h.strip()
@@ -32,6 +38,19 @@ ALLOWED_HOSTS = [
 
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+
+if not DEBUG:
+    if SECRET_KEY == _DEFAULT_DEV_SECRET or not SECRET_KEY:
+        raise ImproperlyConfigured(
+            "Set DJANGO_SECRET_KEY to a long random value when DJANGO_DEBUG=0."
+        )
+    if not CSRF_TRUSTED_ORIGINS:
+        raise ImproperlyConfigured(
+            "Set CSRF_TRUSTED_ORIGINS (e.g. https://yourapp.onrender.com) when DJANGO_DEBUG=0."
+        )
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "daphne",
@@ -98,11 +117,11 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("DB_NAME", "smartchat"),
+            "NAME": os.environ.get("DB_NAME", "smartchat_db"),
             "USER": os.environ.get("DB_USER", "root"),
             "PASSWORD": os.environ.get("DB_PASSWORD", ""),
             "HOST": os.environ.get("DB_HOST", "127.0.0.1"),
-            "PORT": os.environ.get("DB_PORT", "3306"),
+            "PORT": _env_int("DB_PORT", 3306),
             "OPTIONS": {
                 "charset": "utf8mb4",
                 "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -150,7 +169,7 @@ EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "SmartChat <noreply@localhost>"
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_APP_PASSWORD", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_HOST_PORT", "587"))
+EMAIL_PORT = _env_int("EMAIL_HOST_PORT", 587)
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
 OTP_EXPIRY_MINUTES = 5
 
