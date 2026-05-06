@@ -12,9 +12,9 @@ class SignupRequestForm(forms.Form):
     email = forms.EmailField(widget=forms.EmailInput(attrs=_widget))
     password1 = forms.CharField(widget=_widget_pw, min_length=8)
     password2 = forms.CharField(widget=_widget_pw, min_length=8)
-    first_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs=_widget))
-    last_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs=_widget))
-    phone = forms.CharField(max_length=32, required=False, widget=forms.TextInput(attrs=_widget))
+    first_name = forms.CharField(max_length=50, required=False, widget=forms.TextInput(attrs=_widget))
+    last_name = forms.CharField(max_length=30, required=False, widget=forms.TextInput(attrs=_widget))
+    phone = forms.CharField(max_length=15, required=False, widget=forms.TextInput(attrs=_widget))
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
